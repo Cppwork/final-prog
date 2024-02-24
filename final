@@ -1,0 +1,426 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <ctime>
+#include <ncurses.h>
+#include <vector>
+#include <filesystem>
+
+namespace fs = std::filesystem;
+
+struct User {
+    std::string username;
+    std::string email;
+    std::string password;
+    std::string fullName;
+    std::string dateOfBirth;
+    std::string additionalInfo;
+};
+
+bool isValidEmail(const std::string& email) {
+    size_t atPos = email.find('@');
+    if (atPos == std::string::npos) {
+        return false;
+    }
+
+    std::string domain = email.substr(atPos + 1);
+    if (domain == "gmail.ru" || domain == "gmail.com" ||
+        domain == "yandex.ru" || domain == "yandex.com") {
+        return true;
+    }
+
+    return false;
+}
+
+void saveUsers(const std::vector<User>& users) {
+    std::ofstream file("users.txt");
+    if (file.is_open()) {
+        for (const User& user : users) {
+            file << user.username << " " << user.email << " " << user.password << " "
+                 << user.fullName << " " << user.dateOfBirth << " " << user.additionalInfo << std::endl;
+        }
+        file.close();
+    } else {
+        std::cout << "Unable to open file for saving users." << std::endl;
+    }
+}
+
+void loadUsers(std::vector<User>& users) {
+    std::ifstream file("users.txt");
+    if (file.is_open()) {
+        users.clear();
+        User user;
+        while (file >> user.username >> user.email >> user.password >> user.fullName >> user.dateOfBirth >> user.additionalInfo) {
+            users.push_back(user);
+        }
+        file.close();
+    } else {
+        std::cout << "No saved users found." << std::endl;
+    }
+}
+
+void showProfile(const User& user) {
+    std::cout << "Profile of the user:\n";
+    std::cout << "Username: " << user.username << "\n";
+    std::cout << "Email: " << user.email << "\n";
+    std::cout << "Full Name: " << user.fullName << "\n";
+    std::cout << "Date of Birth: " << user.dateOfBirth << "\n";
+    std::cout << "Additional Info: " << user.additionalInfo << "\n";
+}
+
+void updateProfile(User& user) {
+    std::cout << "Choose what you want to update:\n";
+    std::cout << "1. Username\n";
+    std::cout << "2. Email\n";
+    std::cout << "3. Full Name\n";
+    std::cout << "4. Date of Birth\n";
+    std::cout << "5. Additional Info\n";
+
+    int choice;
+    std::cin >> choice;
+
+    switch (choice) {
+        case 1:
+            std::cout << "Enter new username: ";
+            std::cin >> user.username;
+            break;
+        case 2:
+            std::cout << "Enter new email: ";
+            std::cin >> user.email;
+            break;
+        case 3:
+            std::cout << "Enter new full name: ";
+            std::cin >> user.fullName;
+            break;
+        case 4:
+            std::cout << "Enter new date of birth: ";
+            std::cin >> user.dateOfBirth;
+            break;
+        case 5:
+            std::cout << "Enter new additional info: ";
+            std::cin.ignore();
+            std::getline(std::cin, user.additionalInfo);
+            break;
+        default:
+            std::cout << "Invalid choice.\n";
+    }
+}
+
+struct FileInfo {
+    std::string name;
+    std::string text;
+    std::tm creationTime;
+};
+
+void handleFileManagement(std::vector<FileInfo>& filesInfo) {
+    while (true) {
+        std::cout << "File Management Menu:\n";
+        std::cout << "1. Create a new file\n";
+        std::cout << "2. Show information about created files\n";
+        std::cout << "3. Return to main menu\n";
+
+        char fileChoice;
+        std::cin >> fileChoice;
+
+        if (fileChoice == '1') {
+            std::string foldername, filename;
+            std::cout << "Enter the folder name: ";
+            std::cin >> foldername;
+
+            fs::create_directory(foldername);
+
+            std::cout << "Enter the file name: ";
+            std::cin >> filename;
+
+            std::ofstream file(fs::path(foldername) / filename);
+
+            if (file.is_open()) {
+                FileInfo fileInfo;
+                fileInfo.name = filename;
+
+                std::time_t currentTime = std::time(nullptr);
+                fileInfo.creationTime = *std::localtime(&currentTime);
+
+                std::cout << "Enter the text information to write to the file (enter '=' to complete):\n";
+
+                std::string text;
+                char ch;
+                while (std::cin.get(ch) && ch != '=') {
+                    text += ch;
+                }
+
+                file << text;
+                fileInfo.text = text;
+
+                filesInfo.push_back(fileInfo);
+
+                std::cout << "The text has been successfully added to the file.\n";
+
+                file.close();
+            } else {
+                std::cout << "The file could not be opened.\n";
+            }
+        } else if (fileChoice == '2') {
+            std::cout << "Information about the created files:\n";
+            for (const auto& fileInfo : filesInfo) {
+                std::cout << "File name: " << fileInfo.name << "\n";
+                char timeStr[100];
+                std::strftime(timeStr, sizeof(timeStr), "%c", &fileInfo.creationTime);
+                std::cout << "Creation time: " << timeStr << "\n";
+                std::cout << "Text information:\n" << fileInfo.text << "\n\n";
+            }
+        } else if (fileChoice == '3') {
+            break;
+        }
+    }
+}
+
+void showToDoList(const std::vector<std::string>& toDoList) {
+    std::cout << "To Do List:\n";
+    for (const auto& item : toDoList) {
+        std::cout << "- " << item << "\n";
+    }
+}
+
+void addToDoList(std::vector<std::string>& toDoList) {
+    std::string newItem;
+    std::cout << "Enter the new item for the To Do List: ";
+    std::cin.ignore();
+    std::getline(std::cin, newItem);
+    toDoList.push_back(newItem);
+    std::cout << "Item added to the To Do List.\n";
+}
+
+int main() {
+    std::vector<User> users;
+    loadUsers(users);
+
+    std::vector<FileInfo> filesInfo;
+    std::vector<std::string> toDoList;
+
+    while (true) {
+        std::cout << "Choose an action:\n";
+        std::cout << "1. Register\n";
+        std::cout << "2. Login\n";
+        std::cout << "3. Profile\n";
+        std::cout << "4. File Management\n";
+        std::cout << "5. To Do List\n";
+        std::cout << "6. Exit\n";
+
+        int choice;
+        std::cin >> choice;
+
+        if (choice == 1) {
+            User newUser;
+
+            std::cout << "Enter username: ";
+            std::cin >> newUser.username;
+
+            bool usernameExists = false;
+            for (const User& user : users) {
+                if (user.username == newUser.username) {
+                    usernameExists = true;
+                    break;
+                }
+            }
+
+            if (usernameExists) {
+                std::cout << "Username already taken. Please try another one.\n";
+                continue;
+            }
+
+            while (true) {
+                std::cout << "Enter email: ";
+                std::cin >> newUser.email;
+
+                if (!isValidEmail(newUser.email)) {
+                    std::cout << "Invalid email. Please use email with domains gmail.ru, gmail.com, yandex.ru, or yandex.com.\n";
+                    continue;
+                } else {
+                    break;
+                }
+            }
+
+            bool emailExists = false;
+            for (const User& user : users) {
+                if (user.email == newUser.email) {
+                    emailExists = true;
+                    break;
+                }
+            }
+
+            if (emailExists) {
+                std::cout << "Email already in use. Please try another one.\n";
+                continue;
+            }
+
+            std::cout << "Enter password: ";
+            std::cin >> newUser.password;
+
+            std::cout << "Enter full name: ";
+            std::cin >> newUser.fullName;
+
+            std::cout << "Enter date of birth: ";
+            std::cin >> newUser.dateOfBirth;
+
+            std::cout << "Enter additional info: ";
+            std::cin.ignore();
+            std::getline(std::cin, newUser.additionalInfo);
+
+            users.push_back(newUser);
+
+            saveUsers(users);
+
+            std::cout << "User registered.\n";
+        } else if (choice == 2) {
+            std::string loginUsername, loginPassword;
+            std::cout << "Enter username for login:\n";
+            std::cin >> loginUsername;
+            std::cout << "Enter password for login:\n";
+            std::cin >> loginPassword;
+
+            bool loggedIn = false;
+            for (const User& user : users) {
+                if (user.username == loginUsername && user.password == loginPassword) {
+                    std::cout << "Login successful.\n";
+                    loggedIn = true;
+                    break;
+                }
+            }
+
+            if (!loggedIn) {
+                std::cout << "Invalid username or password. Please register.\n";
+            }
+        } else if (choice == 3) {
+            std::string username;
+            std::cout << "Enter username to view profile:\n";
+            std::cin >> username;
+
+            bool found = false;
+            for (User& user : users) {
+                if (user.username == username) {
+                    showProfile(user);
+                    updateProfile(user);
+                    saveUsers(users);
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                std::cout << "User not found.\n";
+            }
+        } else if (choice == 4) {
+            std::string option;
+            std::cout << "Do you want to register or login before accessing File Management? (register/login/continue): ";
+            std::cin >> option;
+
+            if (option == "register") {
+                // Register
+                User newUser;
+
+                std::cout << "Enter username: ";
+                std::cin >> newUser.username;
+
+                bool usernameExists = false;
+                for (const User& user : users) {
+                    if (user.username == newUser.username) {
+                        usernameExists = true;
+                        break;
+                    }
+                }
+
+                if (usernameExists) {
+                    std::cout << "Username already taken. Please try another one.\n";
+                    continue;
+                }
+
+                while (true) {
+                    std::cout << "Enter email: ";
+                    std::cin >> newUser.email;
+
+                    if (!isValidEmail(newUser.email)) {
+                        std::cout << "Invalid email. Please use email with domains gmail.ru, gmail.com, yandex.ru, or yandex.com.\n";
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
+
+                bool emailExists = false;
+                for (const User& user : users) {
+                    if (user.email == newUser.email) {
+                        emailExists = true;
+                        break;
+                    }
+                }
+
+                if (emailExists) {
+                    std::cout << "Email already in use. Please try another one.\n";
+                    continue;
+                }
+
+                std::cout << "Enter password: ";
+                std::cin >> newUser.password;
+
+                std::cout << "Enter full name: ";
+                std::cin >> newUser.fullName;
+
+                std::cout << "Enter date of birth: ";
+                std::cin >> newUser.dateOfBirth;
+
+                std::cout << "Enter additional info: ";
+                std::cin.ignore();
+                std::getline(std::cin, newUser.additionalInfo);
+
+                users.push_back(newUser);
+
+                saveUsers(users);
+
+                std::cout << "User registered.\n";
+            } else if (option == "login") {
+                // Login
+                std::string loginUsername, loginPassword;
+                std::cout << "Enter username for login:\n";
+                std::cin >> loginUsername;
+                std::cout << "Enter password for login:\n";
+                std::cin >> loginPassword;
+
+                bool loggedIn = false;
+                for (const User& user : users) {
+                    if (user.username == loginUsername && user.password == loginPassword) {
+                        std::cout << "Login successful.\n";
+                        loggedIn = true;
+                        break;
+                    }
+                }
+
+                if (!loggedIn) {
+                    std::cout << "Invalid username or password. Please register.\n";
+                }
+            } else if (option == "continue") {
+                handleFileManagement(filesInfo);
+            } else {
+                std::cout << "Invalid option.\n";
+            }
+        } else if (choice == 5) {
+            std::string toDoOption;
+            std::cout << "Do you want to view the To Do List or add a new item? (view/add): ";
+            std::cin >> toDoOption;
+
+            if (toDoOption == "view") {
+                showToDoList(toDoList);
+            } else if (toDoOption == "add") {
+                addToDoList(toDoList);
+            } else {
+                std::cout << "Invalid option.\n";
+            }
+        } else if (choice == 6) {
+            break;
+        } else {
+            std::cout << "Invalid choice. Please try again.\n";
+        }
+    }
+
+    return 0;
+}
